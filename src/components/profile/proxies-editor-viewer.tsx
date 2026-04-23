@@ -53,6 +53,14 @@ interface Props {
   onSave?: (prev?: string, curr?: string) => void
 }
 
+const readProfileFileSafe = async (uid?: string) => {
+  if (!uid) {
+    return ''
+  }
+
+  return readProfileFile(uid)
+}
+
 export const ProxiesEditorViewer = (props: Props) => {
   const { profileUid, property, open, onClose, onSave } = props
   const { t } = useTranslation()
@@ -183,7 +191,7 @@ export const ProxiesEditorViewer = (props: Props) => {
     parseBatch()
   }
   const fetchProfile = useCallback(async () => {
-    const data = await readProfileFile(profileUid)
+    const data = await readProfileFileSafe(profileUid)
 
     const originProxiesObj = yaml.load(data) as {
       proxies: IProxyConfig[]

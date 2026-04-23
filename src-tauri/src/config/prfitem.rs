@@ -483,22 +483,16 @@ impl PrfItem {
 
     /// ## Rules type (enhance)
     pub fn from_rules() -> Result<Self> {
-        let uid = help::get_uid("r").into();
-        let file = format!("{uid}.yaml").into(); // yaml ext
-
-        Ok(Self {
-            uid: Some(uid),
-            itype: Some("rules".into()),
-            file: Some(file),
-            updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(tmpl::ITEM_RULES.into()),
-            ..Default::default()
-        })
+        Self::from_rules_with_uid(None)
     }
 
     /// ## Proxies type (enhance)
     pub fn from_proxies() -> Result<Self> {
-        let uid = help::get_uid("p").into();
+        Self::from_proxies_with_uid(None)
+    }
+
+    pub fn from_proxies_with_uid(uid: Option<String>) -> Result<Self> {
+        let uid = uid.unwrap_or_else(|| help::get_uid("p").into());
         let file = format!("{uid}.yaml").into(); // yaml ext
 
         Ok(Self {
@@ -513,7 +507,25 @@ impl PrfItem {
 
     /// ## Groups type (enhance)
     pub fn from_groups() -> Result<Self> {
-        let uid = help::get_uid("g").into();
+        Self::from_groups_with_uid(None)
+    }
+
+    pub fn from_rules_with_uid(uid: Option<String>) -> Result<Self> {
+        let uid = uid.unwrap_or_else(|| help::get_uid("r").into());
+        let file = format!("{uid}.yaml").into(); // yaml ext
+
+        Ok(Self {
+            uid: Some(uid),
+            itype: Some("rules".into()),
+            file: Some(file),
+            updated: Some(chrono::Local::now().timestamp() as usize),
+            file_data: Some(tmpl::ITEM_RULES.into()),
+            ..Default::default()
+        })
+    }
+
+    pub fn from_groups_with_uid(uid: Option<String>) -> Result<Self> {
+        let uid = uid.unwrap_or_else(|| help::get_uid("g").into());
         let file = format!("{uid}.yaml").into(); // yaml ext
 
         Ok(Self {

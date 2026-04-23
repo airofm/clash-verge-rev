@@ -67,6 +67,51 @@ interface Props {
   onSave?: (prev?: string, curr?: string) => void
 }
 
+const readProfileFileSafe = async (uid?: string) => {
+  if (!uid) {
+    return ''
+  }
+
+  try {
+    return await readProfileFile(uid)
+  } catch {
+    return ''
+  }
+}
+
+const extractNamedItems = <T,>(
+  data: string,
+  field: string,
+  isItem: (item: unknown) => item is T,
+) => {
+  const obj = yaml.load(data) as Record<string, unknown> | null
+  const raw = obj?.[field]
+  return Array.isArray(raw) ? raw.filter(isItem) : []
+}
+
+const extractSeqItems = <T,>(
+  data: string,
+  isItem: (item: unknown) => item is T,
+) => {
+  const obj = yaml.load(data) as ISeqProfileConfig | null
+  const prepend: T[] = Array.isArray(obj?.prepend)
+    ? obj.prepend.filter(isItem)
+    : []
+  const append: T[] = Array.isArray(obj?.append)
+    ? obj.append.filter(isItem)
+    : []
+  const deleteList = Array.isArray(obj?.delete) ? obj.delete : []
+  return { prepend, append, deleteList }
+}
+
+const isProxyConfig = (item: unknown): item is IProxyConfig => {
+  return !!item && typeof item === 'object' && 'name' in item
+}
+
+const isProxyGroupConfig = (item: unknown): item is IProxyGroupConfig => {
+  return !!item && typeof item === 'object' && 'name' in item
+}
+
 const builtinProxyPolicies = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
 
 const PROXY_STRATEGY_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -303,52 +348,112 @@ export const GroupsEditorViewer = (props: Props) => {
   }, [prependSeq, appendSeq, deleteSeq])
 
   const fetchProxyPolicy = useCallback(async () => {
-    const data = await readProfileFile(profileUid)
-    const proxiesData = await readProfileFile(proxiesUid)
-    const originGroupsObj = yaml.load(data) as {
-      'proxy-groups': IProxyGroupConfig[]
-    } | null
+    const data = await readProfileFileSafe(profileUid)
+    const proxiesData = await readProfileFileSafe(proxiesUid)
+    const mergeData = await readProfileFileSafe(mergeUid)
+    const globalMergeData = await readProfileFileSafe('Merge')
+    const globalProxiesData = await readProfileFileSafe('GlobalProxies')
+    const globalGroupsData = await readProfileFileSafe('GlobalGroups')
+    let groups = extractNamedItems<IProxyGroupConfig>(
+      data,
+      'proxy-groups',
+      isProxyGroupConfig,
+    )
+    const globalMergeGroups = extractNamedItems<IProxyGroupConfig>(
+      globalMergeData,
+      'proxy-groups',
+      isProxyGroupConfig,
+    )
+    if (globalMergeGroups.length > 0) {
+      groups = globalMergeGroups
+    }
+    const profileMergeGroups = extractNamedItems<IProxyGroupConfig>(
+      mergeData,
+      'proxy-groups',
+      isProxyGroupConfig,
+    )
+    if (profileMergeGroups.length > 0) {
+      groups = profileMergeGroups
+    }
+    const globalGroupsSeq = extractSeqItems<IProxyGroupConfig>(
+      globalGroupsData,
+      isProxyGroupConfig,
+    )
+    const globalDeletedGroups = new Set(
+      normalizeDeleteSeq(globalGroupsSeq.deleteList),
+    )
+    groups = globalGroupsSeq.prepend.concat(
+      groups.filter((group) => !globalDeletedGroups.has(group.name)),
+      globalGroupsSeq.append,
+    )
 
-    const originProxiesObj = yaml.load(data) as { proxies: [] } | null
-    const originProxies = originProxiesObj?.proxies || []
-    const moreProxiesObj = yaml.load(proxiesData) as ISeqProfileConfig | null
-    const morePrependProxies = moreProxiesObj?.prepend || []
-    const moreAppendProxies = moreProxiesObj?.append || []
-    const moreDeleteProxies = normalizeDeleteSeq(moreProxiesObj?.delete)
+    let proxies = extractNamedItems<IProxyConfig>(
+      data,
+      'proxies',
+      isProxyConfig,
+    )
+    const globalMergeProxies = extractNamedItems<IProxyConfig>(
+      globalMergeData,
+      'proxies',
+      isProxyConfig,
+    )
+    if (globalMergeProxies.length > 0) {
+      proxies = globalMergeProxies
+    }
 
-    const proxies = morePrependProxies.concat(
-      originProxies.filter((proxy: any) => {
-        const proxyName =
-          typeof proxy === 'string'
-            ? proxy
-            : (proxy?.name as string | undefined)
-        return proxyName ? !moreDeleteProxies.includes(proxyName) : true
-      }),
-      moreAppendProxies,
+    const profileProxiesSeq = extractSeqItems<IProxyConfig>(
+      proxiesData,
+      isProxyConfig,
+    )
+    const profileDeletedProxies = new Set(
+      normalizeDeleteSeq(profileProxiesSeq.deleteList),
+    )
+    proxies = profileProxiesSeq.prepend.concat(
+      proxies.filter((proxy) => !profileDeletedProxies.has(proxy.name)),
+      profileProxiesSeq.append,
+    )
+
+    const profileMergeProxies = extractNamedItems<IProxyConfig>(
+      mergeData,
+      'proxies',
+      isProxyConfig,
+    )
+    if (profileMergeProxies.length > 0) {
+      proxies = profileMergeProxies
+    }
+
+    const globalProxiesSeq = extractSeqItems<IProxyConfig>(
+      globalProxiesData,
+      isProxyConfig,
+    )
+    const globalDeletedProxies = new Set(
+      normalizeDeleteSeq(globalProxiesSeq.deleteList),
+    )
+    proxies = globalProxiesSeq.prepend.concat(
+      proxies.filter((proxy) => !globalDeletedProxies.has(proxy.name)),
+      globalProxiesSeq.append,
     )
 
     const proxyNames = proxies
-      .map((proxy: any) =>
-        typeof proxy === 'string' ? proxy : (proxy?.name as string | undefined),
-      )
+      .map((proxy) => proxy.name)
       .filter(
         (name): name is string => typeof name === 'string' && name.length > 0,
       )
 
     const computedPolicyList = builtinProxyPolicies.concat(
       prependSeq.map((group: IProxyGroupConfig) => group.name),
-      (originGroupsObj?.['proxy-groups'] || [])
-        .map((group: IProxyGroupConfig) => group.name)
+      groups
+        .map((group) => group.name)
         .filter((name) => !deleteSeq.includes(name)),
       appendSeq.map((group: IProxyGroupConfig) => group.name),
       proxyNames,
     )
 
     setProxyPolicyList(Array.from(new Set(computedPolicyList)))
-  }, [appendSeq, deleteSeq, prependSeq, profileUid, proxiesUid])
+  }, [appendSeq, deleteSeq, mergeUid, prependSeq, profileUid, proxiesUid])
   const fetchProfile = useCallback(async () => {
-    const data = await readProfileFile(profileUid)
-    const mergeData = await readProfileFile(mergeUid)
+    const data = await readProfileFileSafe(profileUid)
+    const mergeData = await readProfileFileSafe(mergeUid)
     const globalMergeData = await readProfileFile('Merge')
 
     const originGroupsObj = yaml.load(data) as {

@@ -30,6 +30,12 @@ pub struct Config {
     runtime_config: Draft<IRuntime>,
 }
 
+const GLOBAL_MERGE_UID: &str = "Merge";
+const GLOBAL_SCRIPT_UID: &str = "Script";
+const GLOBAL_PROXIES_UID: &str = "GlobalProxies";
+const GLOBAL_RULES_UID: &str = "GlobalRules";
+const GLOBAL_GROUPS_UID: &str = "GlobalGroups";
+
 impl Config {
     pub async fn global() -> &'static Self {
         static CONFIG: OnceCell<Config> = OnceCell::const_new();
@@ -101,16 +107,28 @@ impl Config {
         Ok(())
     }
 
-    // Ensure "Merge" and "Script" profile items exist, adding them if missing.
+    // Ensure global profile enhancement items exist, adding them if missing.
     async fn ensure_default_profile_items() -> Result<()> {
         let profiles = Self::profiles().await;
-        if profiles.latest_arc().get_item("Merge").is_err() {
-            let merge_item = &mut PrfItem::from_merge(Some("Merge".into()))?;
+        if profiles.latest_arc().get_item(GLOBAL_MERGE_UID).is_err() {
+            let merge_item = &mut PrfItem::from_merge(Some(GLOBAL_MERGE_UID.into()))?;
             profiles_append_item_safe(merge_item).await?;
         }
-        if profiles.latest_arc().get_item("Script").is_err() {
-            let script_item = &mut PrfItem::from_script(Some("Script".into()))?;
+        if profiles.latest_arc().get_item(GLOBAL_SCRIPT_UID).is_err() {
+            let script_item = &mut PrfItem::from_script(Some(GLOBAL_SCRIPT_UID.into()))?;
             profiles_append_item_safe(script_item).await?;
+        }
+        if profiles.latest_arc().get_item(GLOBAL_PROXIES_UID).is_err() {
+            let proxies_item = &mut PrfItem::from_proxies_with_uid(Some(GLOBAL_PROXIES_UID.into()))?;
+            profiles_append_item_safe(proxies_item).await?;
+        }
+        if profiles.latest_arc().get_item(GLOBAL_RULES_UID).is_err() {
+            let rules_item = &mut PrfItem::from_rules_with_uid(Some(GLOBAL_RULES_UID.into()))?;
+            profiles_append_item_safe(rules_item).await?;
+        }
+        if profiles.latest_arc().get_item(GLOBAL_GROUPS_UID).is_err() {
+            let groups_item = &mut PrfItem::from_groups_with_uid(Some(GLOBAL_GROUPS_UID.into()))?;
+            profiles_append_item_safe(groups_item).await?;
         }
         Ok(())
     }

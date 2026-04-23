@@ -24,6 +24,12 @@ use std::collections::{HashMap, HashSet};
 use tokio::fs;
 
 type ResultLog = Vec<(String, String)>;
+const GLOBAL_MERGE_UID: &str = "Merge";
+const GLOBAL_SCRIPT_UID: &str = "Script";
+const GLOBAL_PROXIES_UID: &str = "GlobalProxies";
+const GLOBAL_RULES_UID: &str = "GlobalRules";
+const GLOBAL_GROUPS_UID: &str = "GlobalGroups";
+
 #[derive(Debug)]
 struct ConfigValues {
     clash_config: Mapping,
@@ -49,6 +55,9 @@ struct ProfileItems {
     groups_item: ChainItem,
     global_merge: ChainItem,
     global_script: ChainItem,
+    global_proxies: ChainItem,
+    global_rules: ChainItem,
+    global_groups: ChainItem,
     profile_name: String,
 }
 
@@ -78,12 +87,24 @@ impl Default for ProfileItems {
                 data: ChainType::Groups(SeqMap::default()),
             },
             global_merge: ChainItem {
-                uid: "Merge".into(),
+                uid: GLOBAL_MERGE_UID.into(),
                 data: ChainType::Merge(Mapping::new()),
             },
             global_script: ChainItem {
-                uid: "Script".into(),
+                uid: GLOBAL_SCRIPT_UID.into(),
                 data: ChainType::Script(tmpl::ITEM_SCRIPT.into()),
+            },
+            global_proxies: ChainItem {
+                uid: GLOBAL_PROXIES_UID.into(),
+                data: ChainType::Proxies(SeqMap::default()),
+            },
+            global_rules: ChainItem {
+                uid: GLOBAL_RULES_UID.into(),
+                data: ChainType::Rules(SeqMap::default()),
+            },
+            global_groups: ChainItem {
+                uid: GLOBAL_GROUPS_UID.into(),
+                data: ChainType::Groups(SeqMap::default()),
             },
         }
     }
@@ -168,12 +189,12 @@ async fn collect_profile_items() -> ProfileItems {
     let merge_uid: Cow<'_, str> = if let Some(s) = current_item.current_merge() {
         Cow::Borrowed(s)
     } else {
-        Cow::Owned("Merge".into())
+        Cow::Owned(GLOBAL_MERGE_UID.into())
     };
     let script_uid: Cow<'_, str> = if let Some(s) = current_item.current_script() {
         Cow::Borrowed(s)
     } else {
-        Cow::Owned("Script".into())
+        Cow::Owned(GLOBAL_SCRIPT_UID.into())
     };
     let rules_uid: Cow<'_, str> = if let Some(s) = current_item.current_rules() {
         Cow::Borrowed(s)
@@ -263,7 +284,7 @@ async fn collect_profile_items() -> ProfileItems {
     });
 
     let global_merge = {
-        let item = profiles_arc.get_item("Merge").ok().cloned();
+        let item = profiles_arc.get_item(GLOBAL_MERGE_UID).ok().cloned();
         if let Some(item) = item {
             <Option<ChainItem>>::from_async(&item).await
         } else {
@@ -271,12 +292,12 @@ async fn collect_profile_items() -> ProfileItems {
         }
     }
     .unwrap_or_else(|| ChainItem {
-        uid: "Merge".into(),
+        uid: GLOBAL_MERGE_UID.into(),
         data: ChainType::Merge(Mapping::new()),
     });
 
     let global_script = {
-        let item = profiles_arc.get_item("Script").ok().cloned();
+        let item = profiles_arc.get_item(GLOBAL_SCRIPT_UID).ok().cloned();
         if let Some(item) = item {
             <Option<ChainItem>>::from_async(&item).await
         } else {
@@ -284,8 +305,47 @@ async fn collect_profile_items() -> ProfileItems {
         }
     }
     .unwrap_or_else(|| ChainItem {
-        uid: "Script".into(),
+        uid: GLOBAL_SCRIPT_UID.into(),
         data: ChainType::Script(tmpl::ITEM_SCRIPT.into()),
+    });
+
+    let global_rules = {
+        let item = profiles_arc.get_item(GLOBAL_RULES_UID).ok().cloned();
+        if let Some(item) = item {
+            <Option<ChainItem>>::from_async(&item).await
+        } else {
+            None
+        }
+    }
+    .unwrap_or_else(|| ChainItem {
+        uid: GLOBAL_RULES_UID.into(),
+        data: ChainType::Rules(SeqMap::default()),
+    });
+
+    let global_proxies = {
+        let item = profiles_arc.get_item(GLOBAL_PROXIES_UID).ok().cloned();
+        if let Some(item) = item {
+            <Option<ChainItem>>::from_async(&item).await
+        } else {
+            None
+        }
+    }
+    .unwrap_or_else(|| ChainItem {
+        uid: GLOBAL_PROXIES_UID.into(),
+        data: ChainType::Proxies(SeqMap::default()),
+    });
+
+    let global_groups = {
+        let item = profiles_arc.get_item(GLOBAL_GROUPS_UID).ok().cloned();
+        if let Some(item) = item {
+            <Option<ChainItem>>::from_async(&item).await
+        } else {
+            None
+        }
+    }
+    .unwrap_or_else(|| ChainItem {
+        uid: GLOBAL_GROUPS_UID.into(),
+        data: ChainType::Groups(SeqMap::default()),
     });
 
     drop(profiles_arc);
@@ -299,6 +359,9 @@ async fn collect_profile_items() -> ProfileItems {
         groups_item,
         global_merge,
         global_script,
+        global_proxies,
+        global_rules,
+        global_groups,
         profile_name: name,
     }
 }
@@ -328,6 +391,29 @@ fn process_global_items(
             Err(err) => logs.push(("exception".into(), err.to_string().into())),
         }
         result_map.insert(global_script.uid, logs);
+    }
+
+    (config, exists_keys, result_map)
+}
+
+fn process_post_profile_global_items(
+    mut config: Mapping,
+    exists_keys: Vec<String>,
+    result_map: HashMap<String, ResultLog>,
+    global_proxies: ChainItem,
+    global_rules: ChainItem,
+    global_groups: ChainItem,
+) -> (Mapping, Vec<String>, HashMap<String, ResultLog>) {
+    if let ChainType::Proxies(proxies) = global_proxies.data {
+        config = use_seq(proxies, config.to_owned(), "proxies");
+    }
+
+    if let ChainType::Groups(groups) = global_groups.data {
+        config = use_seq(groups, config.to_owned(), "proxy-groups");
+    }
+
+    if let ChainType::Rules(rules) = global_rules.data {
+        config = use_seq(rules, config.to_owned(), "rules");
     }
 
     (config, exists_keys, result_map)
@@ -618,6 +704,9 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
     let groups_item = profile.groups_item;
     let global_merge = profile.global_merge;
     let global_script = profile.global_script;
+    let global_proxies = profile.global_proxies;
+    let global_rules = profile.global_rules;
+    let global_groups = profile.global_groups;
     let profile_name = profile.profile_name;
 
     // process globals
@@ -634,6 +723,15 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
         merge_item,
         script_item,
         &profile_name,
+    );
+
+    let (config, exists_keys, result_map) = process_post_profile_global_items(
+        config,
+        exists_keys,
+        result_map,
+        global_proxies,
+        global_rules,
+        global_groups,
     );
 
     // merge default clash config
@@ -669,7 +767,17 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
 #[allow(clippy::expect_used)]
 #[cfg(test)]
 mod tests {
-    use super::cleanup_proxy_groups;
+    use super::{
+        ChainItem, ChainType, GLOBAL_GROUPS_UID, GLOBAL_RULES_UID, cleanup_proxy_groups,
+        process_post_profile_global_items, seq::SeqMap, use_seq,
+    };
+    use std::collections::HashMap;
+
+    use serde_yaml_ng::{Mapping, Sequence, Value};
+
+    fn parse_sequence(yaml: &str) -> Sequence {
+        serde_yaml_ng::from_str(yaml).expect("Failed to parse yaml sequence")
+    }
 
     #[test]
     fn remove_missing_proxies_from_groups() {
@@ -824,5 +932,141 @@ proxy-groups:
             .expect("proxies should be a sequence");
         assert_eq!(proxies.len(), 1);
         assert_eq!(proxies[0].as_str(), Some("DIRECT"));
+    }
+
+    #[test]
+    fn keep_global_rules_and_groups_outermost() {
+        let config_str = r#"
+rules:
+  - "origin-rule"
+proxy-groups:
+  - name: "origin-group"
+    type: "select"
+    proxies:
+      - "DIRECT"
+"#;
+
+        let config: Mapping = serde_yaml_ng::from_str(config_str).expect("Failed to parse test yaml");
+
+        let config = use_seq(
+            SeqMap {
+                prepend: parse_sequence(
+                    r#"
+- "profile-prepend-rule"
+"#,
+                ),
+                append: parse_sequence(
+                    r#"
+- "profile-append-rule"
+"#,
+                ),
+                delete: vec![],
+            },
+            config,
+            "rules",
+        );
+
+        let config = use_seq(
+            SeqMap {
+                prepend: parse_sequence(
+                    r#"
+- name: "profile-prepend-group"
+  type: "select"
+  proxies:
+    - "DIRECT"
+"#,
+                ),
+                append: parse_sequence(
+                    r#"
+- name: "profile-append-group"
+  type: "select"
+  proxies:
+    - "DIRECT"
+"#,
+                ),
+                delete: vec![],
+            },
+            config,
+            "proxy-groups",
+        );
+
+        let (config, _, _) = process_post_profile_global_items(
+            config,
+            vec![],
+            HashMap::new(),
+            ChainItem {
+                uid: GLOBAL_RULES_UID.into(),
+                data: ChainType::Rules(SeqMap {
+                    prepend: parse_sequence(
+                        r#"
+- "global-prepend-rule"
+"#,
+                    ),
+                    append: parse_sequence(
+                        r#"
+- "global-append-rule"
+"#,
+                    ),
+                    delete: vec![],
+                }),
+            },
+            ChainItem {
+                uid: GLOBAL_GROUPS_UID.into(),
+                data: ChainType::Groups(SeqMap {
+                    prepend: parse_sequence(
+                        r#"
+- name: "global-prepend-group"
+  type: "select"
+  proxies:
+    - "DIRECT"
+"#,
+                    ),
+                    append: parse_sequence(
+                        r#"
+- name: "global-append-group"
+  type: "select"
+  proxies:
+    - "DIRECT"
+"#,
+                    ),
+                    delete: vec![],
+                }),
+            },
+        );
+
+        let rules = config
+            .get("rules")
+            .and_then(Value::as_sequence)
+            .expect("rules should be a sequence");
+        let rules: Vec<&str> = rules.iter().filter_map(Value::as_str).collect();
+        assert_eq!(
+            rules,
+            vec![
+                "global-prepend-rule",
+                "profile-prepend-rule",
+                "origin-rule",
+                "profile-append-rule",
+                "global-append-rule",
+            ]
+        );
+
+        let groups = config
+            .get("proxy-groups")
+            .and_then(Value::as_sequence)
+            .expect("proxy-groups should be a sequence");
+        let group_names: Vec<&str> = groups
+            .iter()
+            .filter_map(|group| group.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(
+            group_names,
+            vec![
+                "global-prepend-group",
+                "profile-prepend-group",
+                "origin-group",
+                "profile-append-group",
+                "global-append-group",
+            ]
+        );
     }
 }

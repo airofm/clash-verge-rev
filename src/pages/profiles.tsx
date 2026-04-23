@@ -21,7 +21,15 @@ import {
   TextSnippetOutlined,
 } from '@mui/icons-material'
 import { LoadingButton } from '@mui/lab'
-import { Box, Button, Divider, Grid, IconButton, Stack } from '@mui/material'
+import {
+  Box,
+  Button,
+  Divider,
+  Grid,
+  IconButton,
+  Stack,
+  Typography,
+} from '@mui/material'
 import { listen, TauriEvent } from '@tauri-apps/api/event'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { readTextFile } from '@tauri-apps/plugin-fs'
@@ -34,6 +42,7 @@ import useSWR, { mutate } from 'swr'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import { BasePage, BaseStyledTextField, DialogRef } from '@/components/base'
+import { GlobalProfileSeqViewer } from '@/components/profile/global-profile-seq-viewer'
 import { ProfileItem } from '@/components/profile/profile-item'
 import { ProfileMore } from '@/components/profile/profile-more'
 import {
@@ -265,6 +274,12 @@ const ProfilePage = () => {
 
     return items.filter((i) => i && type1.includes(i.type!))
   }, [profiles])
+
+  const currentProfileUid = profiles.current
+  const currentProfile = useMemo(
+    () => profileItems.find((item) => item.uid === currentProfileUid),
+    [currentProfileUid, profileItems],
+  )
 
   const currentActivatings = () => {
     return [...new Set([profiles.current ?? ''])].filter(Boolean)
@@ -1038,6 +1053,72 @@ const ProfilePage = () => {
             sx={{ width: `calc(100% - 32px)`, borderColor: dividercolor }}
           ></Divider>
           <Box sx={{ mt: 1.5, mb: '10px' }}>
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', px: 1, pb: 1, color: 'text.secondary' }}
+            >
+              {[
+                t('profiles.components.more.global.proxies'),
+                t('profiles.components.more.global.groups'),
+                t('profiles.components.more.global.rules'),
+              ].join(' / ')}
+            </Typography>
+            <Grid container spacing={{ xs: 1, lg: 1 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                <GlobalProfileSeqViewer
+                  id="GlobalProxies"
+                  currentProfile={currentProfile}
+                  onSave={async (prev, curr) => {
+                    if (prev !== curr) {
+                      await onEnhance(false)
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                <GlobalProfileSeqViewer
+                  id="GlobalGroups"
+                  currentProfile={currentProfile}
+                  onSave={async (prev, curr) => {
+                    if (prev !== curr) {
+                      await onEnhance(false)
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }}>
+                <GlobalProfileSeqViewer
+                  id="GlobalRules"
+                  currentProfile={currentProfile}
+                  onSave={async (prev, curr) => {
+                    if (prev !== curr) {
+                      await onEnhance(false)
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
+
+            <Divider
+              variant="middle"
+              flexItem
+              sx={{
+                mt: 2,
+                mb: 1.5,
+                width: `calc(100% - 32px)`,
+                borderColor: dividercolor,
+              }}
+            ></Divider>
+
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', px: 1, pb: 1, color: 'text.secondary' }}
+            >
+              {[
+                t('profiles.components.more.global.merge'),
+                t('profiles.components.more.global.script'),
+              ].join(' / ')}
+            </Typography>
             <Grid container spacing={{ xs: 1, lg: 1 }}>
               <Grid size={{ xs: 12, sm: 6, md: 6, lg: 6 }}>
                 <ProfileMore

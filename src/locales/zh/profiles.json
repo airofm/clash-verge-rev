@@ -73,11 +73,17 @@
     "more": {
       "global": {
         "merge": "全局扩展覆写配置",
-        "script": "全局扩展脚本"
+        "script": "全局扩展脚本",
+        "proxies": "全局节点",
+        "rules": "全局规则",
+        "groups": "全局代理组"
       },
       "chips": {
         "merge": "Merge",
-        "script": "Script"
+        "script": "Script",
+        "proxies": "Proxies",
+        "rules": "Rules",
+        "groups": "Groups"
       }
     },
     "profileItem": {

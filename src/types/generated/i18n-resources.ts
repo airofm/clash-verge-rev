@@ -231,11 +231,17 @@ export interface TranslationResources {
         }
         more: {
           chips: {
+            groups: string
             merge: string
+            proxies: string
+            rules: string
             script: string
           }
           global: {
+            groups: string
             merge: string
+            proxies: string
+            rules: string
             script: string
           }
         }

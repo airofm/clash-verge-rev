@@ -58,6 +58,56 @@ interface Props {
   onSave?: (prev?: string, curr?: string) => void
 }
 
+const readProfileFileSafe = async (uid?: string) => {
+  if (!uid) {
+    return ''
+  }
+
+  try {
+    return await readProfileFile(uid)
+  } catch {
+    return ''
+  }
+}
+
+const extractNamedItems = <T,>(
+  data: string,
+  field: string,
+  isItem: (item: unknown) => item is T,
+) => {
+  const obj = yaml.load(data) as Record<string, unknown> | null
+  const raw = obj?.[field]
+  return Array.isArray(raw) ? raw.filter(isItem) : []
+}
+
+const extractSeqItems = <T,>(
+  data: string,
+  isItem: (item: unknown) => item is T,
+) => {
+  const obj = yaml.load(data) as ISeqProfileConfig | null
+  const prepend: T[] = Array.isArray(obj?.prepend)
+    ? obj.prepend.filter(isItem)
+    : []
+  const append: T[] = Array.isArray(obj?.append)
+    ? obj.append.filter(isItem)
+    : []
+  const deleteList = Array.isArray(obj?.delete) ? obj.delete : []
+  return { prepend, append, deleteList }
+}
+
+const isProxyGroupConfig = (item: unknown): item is IProxyGroupConfig => {
+  return !!item && typeof item === 'object' && 'name' in item
+}
+
+const extractGroupName = (item: unknown) => {
+  if (!item || typeof item !== 'object' || !('name' in item)) {
+    return undefined
+  }
+
+  const { name } = item as { name?: unknown }
+  return typeof name === 'string' ? name : undefined
+}
+
 const portValidator = (value: string): boolean => {
   return new RegExp(
     '^(?:[1-9]\\d{0,3}|[1-5]\\d{4}|6[0-4]\\d{3}|65[0-4]\\d{2}|655[0-2]\\d|6553[0-5])$',
@@ -378,41 +428,60 @@ export const RulesEditorViewer = (props: Props) => {
   }, [prependSeq, appendSeq, deleteSeq])
 
   const fetchProfile = useCallback(async () => {
-    const data = await readProfileFile(profileUid) // 原配置文件
-    const groupsData = await readProfileFile(groupsUid) // groups配置文件
-    const mergeData = await readProfileFile(mergeUid) // merge配置文件
+    const data = await readProfileFileSafe(profileUid) // 原配置文件
+    const groupsData = await readProfileFileSafe(groupsUid) // groups配置文件
+    const mergeData = await readProfileFileSafe(mergeUid) // merge配置文件
     const globalMergeData = await readProfileFile('Merge') // global merge配置文件
+    const globalGroupsData = await readProfileFileSafe('GlobalGroups')
 
     const rulesObj = yaml.load(data) as { rules: [] } | null
 
-    const originGroupsObj = yaml.load(data) as {
-      'proxy-groups': IProxyGroupConfig[]
-    } | null
-    const originGroups = originGroupsObj?.['proxy-groups'] || []
-    const moreGroupsObj = yaml.load(groupsData) as ISeqProfileConfig | null
-    const rawPrependGroups = moreGroupsObj?.['prepend']
-    const morePrependGroups = Array.isArray(rawPrependGroups)
-      ? (rawPrependGroups as IProxyGroupConfig[])
-      : []
-    const rawAppendGroups = moreGroupsObj?.['append']
-    const moreAppendGroups = Array.isArray(rawAppendGroups)
-      ? (rawAppendGroups as IProxyGroupConfig[])
-      : []
-    const rawDeleteGroups = moreGroupsObj?.['delete']
-    const moreDeleteGroups: Array<string | { name: string }> = Array.isArray(
-      rawDeleteGroups,
+    let groups = extractNamedItems<IProxyGroupConfig>(
+      data,
+      'proxy-groups',
+      isProxyGroupConfig,
     )
-      ? (rawDeleteGroups as Array<string | { name: string }>)
-      : []
-    const groups = morePrependGroups.concat(
-      originGroups.filter((group: any) => {
-        if (group.name) {
-          return !moreDeleteGroups.includes(group.name)
-        } else {
-          return !moreDeleteGroups.includes(group)
-        }
-      }),
-      moreAppendGroups,
+
+    const globalMergeGroups = extractNamedItems<IProxyGroupConfig>(
+      globalMergeData,
+      'proxy-groups',
+      isProxyGroupConfig,
+    )
+    if (globalMergeGroups.length > 0) {
+      groups = globalMergeGroups
+    }
+
+    const profileGroupsSeq = extractSeqItems<IProxyGroupConfig>(
+      groupsData,
+      isProxyGroupConfig,
+    )
+    const profileDeletedGroups = new Set(
+      profileGroupsSeq.deleteList.map(extractGroupName).filter(Boolean),
+    )
+    groups = profileGroupsSeq.prepend.concat(
+      groups.filter((group) => !profileDeletedGroups.has(group.name)),
+      profileGroupsSeq.append,
+    )
+
+    const profileMergeGroups = extractNamedItems<IProxyGroupConfig>(
+      mergeData,
+      'proxy-groups',
+      isProxyGroupConfig,
+    )
+    if (profileMergeGroups.length > 0) {
+      groups = profileMergeGroups
+    }
+
+    const globalGroupsSeq = extractSeqItems<IProxyGroupConfig>(
+      globalGroupsData,
+      isProxyGroupConfig,
+    )
+    const globalDeletedGroups = new Set(
+      globalGroupsSeq.deleteList.map(extractGroupName).filter(Boolean),
+    )
+    groups = globalGroupsSeq.prepend.concat(
+      groups.filter((group) => !globalDeletedGroups.has(group.name)),
+      globalGroupsSeq.append,
     )
 
     const originRuleSetObj = yaml.load(data) as {
@@ -443,7 +512,7 @@ export const RulesEditorViewer = (props: Props) => {
     const globalSubRule = globalSubRuleObj?.['sub-rules'] || {}
     const subRule = Object.assign({}, originSubRule, moreSubRule, globalSubRule)
     setProxyPolicyList(
-      builtinProxyPolicies.concat(groups.map((group: any) => group.name)),
+      builtinProxyPolicies.concat(groups.map((group) => group.name)),
     )
     setRuleSetList(Object.keys(ruleSet))
     setSubRuleList(Object.keys(subRule))

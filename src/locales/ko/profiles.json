@@ -73,11 +73,17 @@
     "more": {
       "global": {
         "merge": "전역 확장 구성",
-        "script": "전역 확장 스크립트"
+        "script": "전역 확장 스크립트",
+        "proxies": "Global Proxies",
+        "rules": "Global Rules",
+        "groups": "Global Proxy Groups"
       },
       "chips": {
         "merge": "병합",
-        "script": "스크립트"
+        "script": "스크립트",
+        "proxies": "Proxies",
+        "rules": "Rules",
+        "groups": "Groups"
       }
     },
     "profileItem": {
