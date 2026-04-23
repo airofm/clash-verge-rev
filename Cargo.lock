@@ -7670,7 +7670,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-mihomo"
 version = "0.1.5"
-source = "git+https://github.com/clash-verge-rev/tauri-plugin-mihomo?branch=revert#1cc80bc0fbe1245315617f4cecd93710a152325b"
+source = "git+https://github.com/airofm/tauri-plugin-mihomo?branch=unack/add_openvpn_support#c2c9bd6e700cca84542fd48696905c53e1d318dd"
 dependencies = [
  "base64 0.22.1",
  "bytes",

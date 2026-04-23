@@ -138,8 +138,8 @@ importers:
         specifier: ^2.4.1
         version: 2.4.1(react@19.2.4)
       tauri-plugin-mihomo-api:
-        specifier: github:clash-verge-rev/tauri-plugin-mihomo#revert
-        version: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b
+        specifier: github:airofm/tauri-plugin-mihomo#unack/add_openvpn_support
+        version: https://codeload.github.com/airofm/tauri-plugin-mihomo/tar.gz/c2c9bd6e700cca84542fd48696905c53e1d318dd
       types-pac:
         specifier: ^1.0.3
         version: 1.0.3
@@ -3299,8 +3299,8 @@ packages:
     resolution: {integrity: sha512-ChjMH33/KetonMTAtpYdgUFr0tbz69Fp2v7zWxQfYZX4g5ZN2nOBXm1R2xyA+lMIKrLKIoKAwFj93jE/avX9cQ==}
     engines: {node: '>=18'}
 
-  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b:
-    resolution: {tarball: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b}
+  tauri-plugin-mihomo-api@https://codeload.github.com/airofm/tauri-plugin-mihomo/tar.gz/c2c9bd6e700cca84542fd48696905c53e1d318dd:
+    resolution: {tarball: https://codeload.github.com/airofm/tauri-plugin-mihomo/tar.gz/c2c9bd6e700cca84542fd48696905c53e1d318dd}
     version: 0.1.5
 
   terser@5.46.0:
@@ -6921,7 +6921,7 @@ snapshots:
       minizlib: 3.1.0
       yallist: 5.0.0
 
-  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b:
+  tauri-plugin-mihomo-api@https://codeload.github.com/airofm/tauri-plugin-mihomo/tar.gz/c2c9bd6e700cca84542fd48696905c53e1d318dd:
     dependencies:
       '@tauri-apps/api': 2.10.1
 
