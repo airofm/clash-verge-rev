@@ -768,8 +768,8 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
 #[cfg(test)]
 mod tests {
     use super::{
-        ChainItem, ChainType, GLOBAL_GROUPS_UID, GLOBAL_RULES_UID, cleanup_proxy_groups,
-        process_post_profile_global_items, seq::SeqMap, use_seq,
+        ChainItem, ChainType, GLOBAL_GROUPS_UID, GLOBAL_PROXIES_UID, GLOBAL_RULES_UID,
+        cleanup_proxy_groups, process_post_profile_global_items, seq::SeqMap, use_seq,
     };
     use std::collections::HashMap;
 
