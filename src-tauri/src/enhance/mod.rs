@@ -995,6 +995,10 @@ proxy-groups:
             vec![],
             HashMap::new(),
             ChainItem {
+                uid: GLOBAL_PROXIES_UID.into(),
+                data: ChainType::Proxies(SeqMap::default()),
+            },
+            ChainItem {
                 uid: GLOBAL_RULES_UID.into(),
                 data: ChainType::Rules(SeqMap {
                     prepend: parse_sequence(
